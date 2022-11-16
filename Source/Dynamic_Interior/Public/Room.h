@@ -4,50 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "WallComponent.h"
+
 #include "Room.generated.h"
-
-UENUM(BlueprintType)
-enum class WallType : uint8
-{
-	EMPTY		UMETA(DisplayName = "Empty"),
-	WITH_DOOR	UMETA(DisplayName = "With Door"),
-	WITH_WINDOW	UMETA(DisplayName = "With Window")
-};
-
-UENUM(BlueprintType)
-enum class WallDirection : uint8
-{
-	NORTH	UMETA(DisplayName = "North"), // X+
-	SOUTH	UMETA(DisplayName = "South"), // X-
-	WEST	UMETA(DisplayName = "West"),  // Y-
-	EAST	UMETA(DisplayName = "East")   // Y+
-};
-
-UENUM(BlueprintType)
-enum class SegmentDirection : uint8
-{
-	TOP		UMETA(DisplayName = "TOP"),
-	BOTTOM	UMETA(DisplayName = "BOTTOM"),
-	LEFT	UMETA(DisplayName = "LEFT"),
-	RIGHT	UMETA(DisplayName = "RIGHT")
-};
-
-class Wall
-{
-public:
-
-	FString Name;
-
-	WallType Type = WallType::EMPTY;
-	WallDirection Direction;
-
-	int leftAligment = 20;
-	int rightAligment = 20;
-
-	// For storing door or window mesh if exist
-	UStaticMeshComponent* Object = nullptr;
-	TMap<SegmentDirection, UStaticMeshComponent*> WallSegments;
-};
 
 UCLASS()
 class DYNAMIC_INTERIOR_API ARoom : public AActor
@@ -91,37 +50,55 @@ protected:
 	float WallOffset	= 20.0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurator properties|Offsets", DisplayName = "Door Offset")
-	float DoorOffset	= 0.0;
+	float DoorOffset	= 4.5;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurator properties|Offsets", DisplayName = "Window Offset")
-	float WindowOffset	= 0.0;
+	float WindowOffset	= 18.0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurator properties|Offsets", DisplayName = "Window Height Offset")
+	float WindowHeightOffset = 100.0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurator properties|Offsets", DisplayName = "Aligment Offset")
 	float AligmentOffset = 20.0;
 
-	UStaticMeshComponent* floor   = nullptr;
+	UPROPERTY(BlueprintReadOnly)
+	TMap<WallDirection, UWallComponent*> Walls;
+
+	// Map for window and door dimensions
+	TMap<WallType, FVector> ObjDimensions;
+
+	UStaticMeshComponent* floor = nullptr;
 	UStaticMeshComponent* ceiling = nullptr;
-	TMap<WallDirection, Wall> Walls;
 
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 	
 	UFUNCTION(BlueprintCallable)
+	// Updates wall acording with door or window if they added
 	void UpdateSegments(WallDirection direction);
 
 	UFUNCTION(BlueprintCallable)
 	void UpdateAllSegments();
 
 	UFUNCTION(BlueprintCallable)
+	// Add door/window or remove it and update wall
 	void SetWallType(WallDirection direction, WallType type);
 
 	UFUNCTION(BlueprintCallable)
+	// Set aligment and update wall
 	void SetLeftAligment(WallDirection direction, int value);
 
 	UFUNCTION(BlueprintCallable)
+	// Set aligment and update wall
 	void SetRightAligment(WallDirection direction, int value);
 
+	// Create and attach statuc mesh to wall component
+	UStaticMeshComponent* AddStaticMeshComponent(UWallComponent* WallComponent, UStaticMesh* Mesh, FName Name);
+
+	// Create and attach static mesh to room actor
 	UStaticMeshComponent* AddStaticMeshComponent(UStaticMesh* Mesh, FName Name);
+
+	// Return vector that represents static mesh dimensions
 	FVector GetStaticMeshDimensions(UStaticMesh* Mesh);
 
 public:	
