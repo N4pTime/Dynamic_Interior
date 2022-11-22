@@ -27,14 +27,14 @@ public:
 protected:
 	
 	// Room dimensions
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configurator properties", meta = (ClampMin = "200.0", ClampMax = "500.0"))
-	float Length = 200.0;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configurator properties", meta = (ClampMin = "440.0", ClampMax = "1000.0"))
+	float Length = 440.0;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configurator properties", meta = (ClampMin = "200.0", ClampMax = "500.0"))
-	float Width  = 200.0;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configurator properties", meta = (ClampMin = "440.0", ClampMax = "1000.0"))
+	float Width  = 440.0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configurator properties", meta = (ClampMin = "270.0", ClampMax = "350.0"))
-	float Height = 270.0;
+	float Height = 290.0;
 
 	// Static meshes
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurator properties|Meshes")
