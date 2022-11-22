@@ -20,7 +20,11 @@ enum class WallDirection : uint8
 	NORTH = 0	UMETA(DisplayName = "North"), // X+
 	SOUTH = 1	UMETA(DisplayName = "South"), // X-
 	WEST  = 2	UMETA(DisplayName = "West"),  // Y-
-	EAST  = 3	UMETA(DisplayName = "East")   // Y+
+	EAST  = 3	UMETA(DisplayName = "East"),   // Y+
+	NORTH_EAST = 4	UMETA(DisplayName = "Northeast"), 
+	SOUTH_EAST = 5	UMETA(DisplayName = "Southeast"),
+	NORTH_WEST = 6	UMETA(DisplayName = "Northwest"),
+	SOUTH_WEST = 7	UMETA(DisplayName = "Southwest")
 };
 
 UENUM(BlueprintType)

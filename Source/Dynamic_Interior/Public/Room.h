@@ -8,6 +8,13 @@
 
 #include "Room.generated.h"
 
+UENUM(BlueprintType)
+enum class RoomType : uint8
+{
+	STANDARD	UMETA(DisplayName = "Empty"),
+	L_SHAPE		UMETA(DisplayName = "With Door")
+};
+
 UCLASS()
 class DYNAMIC_INTERIOR_API ARoom : public AActor
 {
@@ -61,6 +68,8 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurator properties|Offsets", DisplayName = "Aligment Offset")
 	float AligmentOffset = 20.0;
 
+	RoomType Type = RoomType::STANDARD;
+
 	UPROPERTY(BlueprintReadOnly)
 	TMap<WallDirection, UWallComponent*> Walls;
 
@@ -74,11 +83,14 @@ protected:
 	virtual void BeginPlay() override;
 	
 	UFUNCTION(BlueprintCallable)
-	// Updates wall acording with door or window if they added
-	void UpdateSegments(WallDirection direction);
+	void CreateRoom(RoomType type = RoomType::STANDARD);
 
 	UFUNCTION(BlueprintCallable)
-	void UpdateAllSegments();
+	// Updates wall acording with door or window if they added
+	void UpdateWall(WallDirection direction);
+
+	UFUNCTION(BlueprintCallable)
+	void UpdateAllWalls();
 
 	UFUNCTION(BlueprintCallable)
 	// Add door/window or remove it and update wall
@@ -97,6 +109,8 @@ protected:
 
 	// Create and attach static mesh to room actor
 	UStaticMeshComponent* AddStaticMeshComponent(UStaticMesh* Mesh, FName Name);
+
+	void UpdateWallTransform(WallDirection direction);
 
 	// Return vector that represents static mesh dimensions
 	FVector GetStaticMeshDimensions(UStaticMesh* Mesh);
