@@ -55,6 +55,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	int rightAligment = 20;
 
+	float Length;
+
 	UPROPERTY()
 	// For storing door or window mesh if exist
 	UStaticMeshComponent* Object = nullptr;

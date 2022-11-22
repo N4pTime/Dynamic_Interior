@@ -28,6 +28,15 @@ protected:
 	
 	// Room dimensions
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configurator properties", meta = (ClampMin = "440.0", ClampMax = "1000.0"))
+	float maxLength = 1000.0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configurator properties", meta = (ClampMin = "440.0", ClampMax = "1000.0"))
+	float maxWidth  = 1000.0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configurator properties", meta = (ClampMin = "270.0", ClampMax = "350.0"))
+	float maxHeight = 350.0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configurator properties", meta = (ClampMin = "440.0", ClampMax = "1000.0"))
 	float Length = 440.0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configurator properties", meta = (ClampMin = "440.0", ClampMax = "1000.0"))
@@ -68,6 +77,15 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurator properties|Offsets", DisplayName = "Aligment Offset")
 	float AligmentOffset = 20.0;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurator properties|Offsets")
+	float minimalWallLength = 200.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurator properties|L Shape")
+	float cornerX = 200.0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurator properties|L Shape")
+	float cornerY = 200.0;
+
 	RoomType Type = RoomType::STANDARD;
 
 	UPROPERTY(BlueprintReadOnly)
@@ -84,6 +102,9 @@ protected:
 	
 	UFUNCTION(BlueprintCallable)
 	void CreateRoom(RoomType type = RoomType::STANDARD);
+
+	UFUNCTION(BlueprintCallable)
+	void SetCorner(FIntPoint corner);
 
 	UFUNCTION(BlueprintCallable)
 	// Updates wall acording with door or window if they added
@@ -111,6 +132,8 @@ protected:
 	UStaticMeshComponent* AddStaticMeshComponent(UStaticMesh* Mesh, FName Name);
 
 	void UpdateWallTransform(WallDirection direction);
+
+	void ClampWallPosition(WallDirection direction);
 
 	// Return vector that represents static mesh dimensions
 	FVector GetStaticMeshDimensions(UStaticMesh* Mesh);

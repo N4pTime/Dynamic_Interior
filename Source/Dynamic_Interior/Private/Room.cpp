@@ -58,12 +58,23 @@ void ARoom::CreateRoom(RoomType type)
 
 			wall->Type = WallType::EMPTY;
 			wall->Direction = dir;
+
+			// Setup wall segments
+			for (int i = 0; i < 4; ++i)
+			{
+				SegmentDirection segdir = static_cast<SegmentDirection>(i);
+
+				auto WallSegment = AddStaticMeshComponent(wall, WallMesh, FName(wall->GetName() + "_Segment" + FString::FromInt(i)));
+				wall->WallSegments.Add(segdir, WallSegment);
+
+				// WallSegment->SetVisibility(false);
+			}
 		}
 	}
 	else if (type == RoomType::L_SHAPE)
 	{
 		// Create 4 walls
-		for (int idx = 0; idx < 4; ++idx)
+		for (int idx = 0; idx < 6; ++idx)
 		{
 			WallDirection dir = static_cast<WallDirection>(idx);
 
@@ -77,31 +88,34 @@ void ARoom::CreateRoom(RoomType type)
 
 			wall->Type = WallType::EMPTY;
 			wall->Direction = dir;
+
+			// Setup wall segments
+			for (int i = 0; i < 4; ++i)
+			{
+				SegmentDirection segdir = static_cast<SegmentDirection>(i);
+
+				auto WallSegment = AddStaticMeshComponent(wall, WallMesh, FName(wall->GetName() + "_Segment" + FString::FromInt(i)));
+				wall->WallSegments.Add(segdir, WallSegment);
+
+				// WallSegment->SetVisibility(false);
+			}
 		}
-
-		// Create Northeast wall
-		UWallComponent* wallnorth = NewObject<UWallComponent>(GetRootComponent(), UWallComponent::StaticClass(), FName("Wall" + FString::FromInt((int)WallDirection::NORTH_EAST + 1)));
-		Walls.Add(WallDirection::NORTH_EAST, wallnorth);
-
-		wallnorth->RegisterComponent();
-		wallnorth->AttachTo(this->RootComponent);
-
-		wallnorth->Type = WallType::EMPTY;
-		wallnorth->Direction = WallDirection::NORTH_EAST;
-
-		// Create Southeast wall
-		UWallComponent* wallsouth = NewObject<UWallComponent>(GetRootComponent(), UWallComponent::StaticClass(), FName("Wall" + FString::FromInt((int)WallDirection::SOUTH_EAST + 1)));
-		Walls.Add(WallDirection::SOUTH_EAST, wallsouth);
-
-		wallsouth->RegisterComponent();
-		wallsouth->AttachTo(this->RootComponent);
-
-		wallsouth->Type = WallType::EMPTY;
-		wallsouth->Direction = WallDirection::SOUTH_EAST;
 	}
 
 	// Create room
 	UpdateAllWalls();
+}
+
+void ARoom::SetCorner(FIntPoint corner)
+{
+	cornerX = FMath::Clamp((float)corner.X, minimalWallLength, Length - minimalWallLength);
+	cornerY = FMath::Clamp((float)corner.Y, minimalWallLength, Width  - minimalWallLength);
+
+	// Update corner walls
+	UpdateWall(WallDirection::NORTH);
+	UpdateWall(WallDirection::EAST);
+	UpdateWall(WallDirection::NORTH_EAST);
+	UpdateWall(WallDirection::SOUTH_EAST);
 }
 
 // Create segments (wall static meshes) and adds door/window by type
@@ -109,68 +123,73 @@ void ARoom::UpdateWall(WallDirection Direction)
 {
 	auto wall = Walls[Direction];
 
+	// Update wall scale
+	if (Type == RoomType::STANDARD)
+	{
+		switch (Direction)
+		{
+		case WallDirection::NORTH:
+		case WallDirection::SOUTH:
+			wall->Length = Width + WallOffset;
+			break;
+		case WallDirection::WEST:
+		case WallDirection::EAST:
+			wall->Length = Length + WallOffset;
+			break;
+		}
+	}
+	else if (Type == RoomType::L_SHAPE)
+	{
+		switch (Direction)
+		{
+		case WallDirection::SOUTH:
+			//TODO: Set relative loc
+			wall->Length = Width + WallOffset;
+			break;
+		case WallDirection::WEST:
+			wall->Length = Length + WallOffset;
+			break;
+		case WallDirection::NORTH:
+			wall->Length = cornerY + WallOffset;
+			break;
+		case WallDirection::NORTH_EAST:
+			wall->Length = Length - cornerX;
+			break;
+		case WallDirection::EAST:
+			wall->Length = cornerX + WallOffset;
+			break;
+		case WallDirection::SOUTH_EAST:
+			wall->Length = Width - cornerY;
+			break;
+		}
+	}
+
 	// Update wall segments
 	if (wall->Type == WallType::EMPTY)
 	{
 		// Destroy Door/Window
 		if (IsValid(wall->Object)) wall->Object->DestroyComponent();
-
-		// Remove previous segments
-		if (wall->WallSegments.Num() != 1)
-		{
-			for (auto& p : wall->WallSegments)
-			{
-				auto& Segment = p.Value;
-				Segment->DestroyComponent();
-			}
-
-			wall->WallSegments.Reset();
-		}
 		
-		UStaticMeshComponent* WallSegment = nullptr;
+		UStaticMeshComponent* WallSegment = wall->WallSegments[SegmentDirection::TOP];
 
-		// Get wall segment
-		if (wall->WallSegments.Contains(SegmentDirection::TOP))
-			WallSegment = wall->WallSegments[SegmentDirection::TOP];
-		else
-		{
-			// Else create segment
-			WallSegment = AddStaticMeshComponent(wall, WallMesh, FName(wall->GetName() + "_Segment"));
-			wall->WallSegments.Add(SegmentDirection::TOP, WallSegment);
-		}
+		// Set visible current / hide others
+		WallSegment->SetVisibility(true);
+		wall->WallSegments[SegmentDirection::BOTTOM]->SetVisibility(false);
+		wall->WallSegments[SegmentDirection::LEFT]->SetVisibility(false);
+		wall->WallSegments[SegmentDirection::RIGHT]->SetVisibility(false);
 
-		switch (Direction)
-		{
-		case WallDirection::NORTH:
-		case WallDirection::SOUTH:
-			//TODO: Set relative loc
-			WallSegment->SetWorldScale3D(FVector(1.0, Width + WallOffset, Height));
-			break;
-		case WallDirection::WEST:
-		case WallDirection::EAST:
-			WallSegment->SetWorldScale3D(FVector(1.0, Length + WallOffset, Height));
-			break;
-		}
+		WallSegment->SetRelativeLocation(FVector(0.0, 0.0, 0.0));
+		WallSegment->SetWorldScale3D(FVector(1.0, wall->Length, Height));
 	}
 	else if (wall->Type == WallType::WITH_DOOR)
 	{
 		auto& WallSegments = wall->WallSegments;
 
-		// Create 3 wall sections
-		if (!WallSegments.Contains(SegmentDirection::TOP))
-			WallSegments.Add(SegmentDirection::TOP, AddStaticMeshComponent(wall, WallMesh, FName(wall->GetName() + "_Segment_Top")));
-
-		if (!WallSegments.Contains(SegmentDirection::LEFT))
-			WallSegments.Add(SegmentDirection::LEFT, AddStaticMeshComponent(wall, WallMesh, FName(wall->GetName() + "_Segment_Left")));
-
-		if (!WallSegments.Contains(SegmentDirection::RIGHT))
-			WallSegments.Add(SegmentDirection::RIGHT, AddStaticMeshComponent(wall, WallMesh, FName(wall->GetName() + "_Segment_Right")));
-
-		if (WallSegments.Contains(SegmentDirection::BOTTOM))
-		{
-			WallSegments[SegmentDirection::BOTTOM]->DestroyComponent();
-			WallSegments.Remove(SegmentDirection::BOTTOM);
-		}
+		// Hide one segment
+		wall->WallSegments[SegmentDirection::BOTTOM]->SetVisibility(false);
+		wall->WallSegments[SegmentDirection::TOP]->SetVisibility(true);
+		wall->WallSegments[SegmentDirection::LEFT]->SetVisibility(true);
+		wall->WallSegments[SegmentDirection::RIGHT]->SetVisibility(true);
 
 		// Destroy old object and create new door mesh
 		if (IsValid(wall->Object)) 
@@ -182,11 +201,6 @@ void ARoom::UpdateWall(WallDirection Direction)
 		auto DoorWidth  = DoorDimensions.Y;
 		auto DoorHeight = DoorDimensions.Z;
 
-		// Set wall length
-		auto WallLength = Width + WallOffset;
-		if (Direction == WallDirection::WEST || Direction == WallDirection::EAST)
-			WallLength = Length + WallOffset;
-
 		// Set transform for wall sections and door
 		WallSegments[SegmentDirection::LEFT]->SetRelativeLocation(FVector(0.0, 0.0, 0.0));
 		WallSegments[SegmentDirection::LEFT]->SetRelativeScale3D(FVector(1.0, wall->leftAligment, DoorHeight));
@@ -195,27 +209,20 @@ void ARoom::UpdateWall(WallDirection Direction)
 		wall->Object->SetRelativeLocation(FVector(DoorOffset, wall->leftAligment, 0.0));
 
 		WallSegments[SegmentDirection::RIGHT]->SetRelativeLocation(FVector(0.0, wall->leftAligment + DoorWidth, 0.0));
-		WallSegments[SegmentDirection::RIGHT]->SetRelativeScale3D(FVector(1.0, WallLength - (wall->leftAligment + DoorWidth), DoorHeight));
+		WallSegments[SegmentDirection::RIGHT]->SetRelativeScale3D(FVector(1.0, wall->Length - (wall->leftAligment + DoorWidth), DoorHeight));
 
 		WallSegments[SegmentDirection::TOP]->SetRelativeLocation(FVector(0.0, 0.0, DoorHeight));
-		WallSegments[SegmentDirection::TOP]->SetRelativeScale3D(FVector(1.0, WallLength, Height - DoorHeight));
+		WallSegments[SegmentDirection::TOP]->SetRelativeScale3D(FVector(1.0, wall->Length, Height - DoorHeight));
 	}
 	else if (wall->Type == WallType::WITH_WINDOW)
 	{
 		auto& WallSegments = wall->WallSegments;
 
-		// Create 3 wall sections
-		if (!WallSegments.Contains(SegmentDirection::TOP))
-			WallSegments.Add(SegmentDirection::TOP, AddStaticMeshComponent(wall, WallMesh, FName(wall->GetName() + "_Segment_Top")));
-
-		if (!WallSegments.Contains(SegmentDirection::LEFT))
-			WallSegments.Add(SegmentDirection::LEFT, AddStaticMeshComponent(wall, WallMesh, FName(wall->GetName() + "_Segment_Left")));
-
-		if (!WallSegments.Contains(SegmentDirection::RIGHT))
-			WallSegments.Add(SegmentDirection::RIGHT, AddStaticMeshComponent(wall, WallMesh, FName(wall->GetName() + "_Segment_Right")));
-
-		if (!WallSegments.Contains(SegmentDirection::BOTTOM))
-			WallSegments.Add(SegmentDirection::BOTTOM, AddStaticMeshComponent(wall, WallMesh, FName(wall->GetName() + "_Segment_Bottom")));
+		// Show all segments
+		wall->WallSegments[SegmentDirection::TOP]->SetVisibility(true);
+		wall->WallSegments[SegmentDirection::LEFT]->SetVisibility(true);
+		wall->WallSegments[SegmentDirection::RIGHT]->SetVisibility(true);
+		wall->WallSegments[SegmentDirection::BOTTOM]->SetVisibility(true);
 
 		// Destroy old object and create new door mesh
 		if (IsValid(wall->Object) && wall->Object->IsValidLowLevel()) 
@@ -227,11 +234,6 @@ void ARoom::UpdateWall(WallDirection Direction)
 		auto WindowWidth  = WindowDimensions.Y - 5.3f; //NOTE: вычитаю, чтобы убрать зазор у окна
 		auto WindowHeight = WindowDimensions.Z;
 
-		// Set wall length
-		auto WallLength = Width + WallOffset;
-		if (Direction == WallDirection::WEST || Direction == WallDirection::EAST)
-			WallLength = Length + WallOffset;
-
 		// Set transform for wall sections and window
 		WallSegments[SegmentDirection::LEFT]->SetRelativeLocation(FVector(0.0, 0.0, 0.0));
 		WallSegments[SegmentDirection::LEFT]->SetRelativeScale3D(FVector(1.0, wall->leftAligment, Height));
@@ -240,7 +242,7 @@ void ARoom::UpdateWall(WallDirection Direction)
 		wall->Object->SetRelativeLocation(FVector(WindowOffset, wall->leftAligment, WindowHeightOffset));
 
 		WallSegments[SegmentDirection::RIGHT]->SetRelativeLocation(FVector(0.0, wall->leftAligment + WindowWidth, 0.0));
-		WallSegments[SegmentDirection::RIGHT]->SetRelativeScale3D(FVector(1.0, WallLength - (wall->leftAligment + WindowWidth), Height));
+		WallSegments[SegmentDirection::RIGHT]->SetRelativeScale3D(FVector(1.0, wall->Length - (wall->leftAligment + WindowWidth), Height));
 
 		WallSegments[SegmentDirection::BOTTOM]->SetRelativeLocation(FVector(0.0, wall->leftAligment, 0.0));
 		WallSegments[SegmentDirection::BOTTOM]->SetRelativeScale3D(FVector(1.0, WindowWidth, WindowHeightOffset));
@@ -296,15 +298,15 @@ void ARoom::UpdateWallTransform(WallDirection direction)
 			break;
 		case WallDirection::EAST:
 			wall->SetWorldRotation(GetActorRotation().Vector().RotateAngleAxis(90.0f, FVector(0.0, 0.0, 1.0f)).Rotation());
-			wall->SetRelativeLocation(FVector(Length, Width, 0.0));
+			wall->SetRelativeLocation(FVector(cornerX, Width, 0.0));
 			break;
 		case WallDirection::NORTH_EAST:
-			/*wall->SetWorldRotation(GetActorRotation().Vector().RotateAngleAxis(90.0f, FVector(0.0, 0.0, 1.0f)).Rotation());
-			wall->SetRelativeLocation(FVector(Length, Width, 0.0));*/
+			wall->SetWorldRotation(GetActorRotation().Vector().RotateAngleAxis(90.0f, FVector(0.0, 0.0, 1.0f)).Rotation());
+			wall->SetRelativeLocation(FVector(Length, cornerY, 0.0));
 			break;
 		case WallDirection::SOUTH_EAST:
-			/*wall->SetWorldRotation(GetActorRotation().Vector().RotateAngleAxis(90.0f, FVector(0.0, 0.0, 1.0f)).Rotation());
-			wall->SetRelativeLocation(FVector(Length, Width, 0.0));*/
+			wall->SetWorldRotation(GetActorRotation().Vector().RotateAngleAxis(0.0f, FVector(0.0, 0.0, 1.0f)).Rotation());
+			wall->SetRelativeLocation(FVector(cornerX, cornerY + WallOffset, 0.0));
 			break;
 		}
 	}
@@ -395,7 +397,7 @@ UStaticMeshComponent* ARoom::AddStaticMeshComponent(UWallComponent* WallComponen
 	static FAttachmentTransformRules rules(EAttachmentRule::KeepRelative, false);
 	Obj->AttachToComponent(WallComponent, rules);
 
-	// AddInstanceComponent(Obj);
+	AddInstanceComponent(Obj);
 
 	return Obj;
 }
