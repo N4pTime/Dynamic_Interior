@@ -27,7 +27,7 @@ void ARoom::BeginPlay()
 	ObjDimensions.Add(WallType::WITH_DOOR, GetStaticMeshDimensions(DoorMesh));
 	ObjDimensions.Add(WallType::WITH_WINDOW, GetStaticMeshDimensions(WindowMesh));
 
-	CreateRoom(RoomType::STANDARD);
+	CreateRoom(RoomType::L_SHAPE);
 }
 
 // Called every frame
@@ -70,6 +70,14 @@ void ARoom::CreateRoom(RoomType type)
 				// WallSegment->SetVisibility(false);
 			}
 		}
+
+		// Prepare floor mesh
+		floor1 = AddStaticMeshComponent(FloorMesh, "Floor1");
+		floor1->SetVisibility(false);
+
+		// Prepare ceiling mesh
+		ceiling1 = AddStaticMeshComponent(CeilingMesh, "Ceiling");
+		ceiling1->SetVisibility(false);
 	}
 	else if (type == RoomType::L_SHAPE)
 	{
@@ -100,22 +108,24 @@ void ARoom::CreateRoom(RoomType type)
 				// WallSegment->SetVisibility(false);
 			}
 		}
+
+		// Prepare floor mesh
+		floor1 = AddStaticMeshComponent(FloorMesh, "Floor1");
+		floor1->SetVisibility(false);
+
+		floor2 = AddStaticMeshComponent(FloorMesh, "Floor2");
+		floor2->SetVisibility(false);
+
+		// Prepare ceiling mesh
+		ceiling1 = AddStaticMeshComponent(CeilingMesh, "Ceiling1");
+		ceiling1->SetVisibility(false);
+
+		ceiling2 = AddStaticMeshComponent(CeilingMesh, "Ceiling2");
+		ceiling2->SetVisibility(false);
 	}
 
 	// Create room
 	UpdateAllWalls();
-}
-
-void ARoom::SetCorner(FIntPoint corner)
-{
-	cornerX = FMath::Clamp((float)corner.X, minimalWallLength, Length - minimalWallLength);
-	cornerY = FMath::Clamp((float)corner.Y, minimalWallLength, Width  - minimalWallLength);
-
-	// Update corner walls
-	UpdateWall(WallDirection::NORTH);
-	UpdateWall(WallDirection::EAST);
-	UpdateWall(WallDirection::NORTH_EAST);
-	UpdateWall(WallDirection::SOUTH_EAST);
 }
 
 // Create segments (wall static meshes) and adds door/window by type
@@ -124,45 +134,9 @@ void ARoom::UpdateWall(WallDirection Direction)
 	auto wall = Walls[Direction];
 
 	// Update wall scale
-	if (Type == RoomType::STANDARD)
-	{
-		switch (Direction)
-		{
-		case WallDirection::NORTH:
-		case WallDirection::SOUTH:
-			wall->Length = Width + WallOffset;
-			break;
-		case WallDirection::WEST:
-		case WallDirection::EAST:
-			wall->Length = Length + WallOffset;
-			break;
-		}
-	}
-	else if (Type == RoomType::L_SHAPE)
-	{
-		switch (Direction)
-		{
-		case WallDirection::SOUTH:
-			//TODO: Set relative loc
-			wall->Length = Width + WallOffset;
-			break;
-		case WallDirection::WEST:
-			wall->Length = Length + WallOffset;
-			break;
-		case WallDirection::NORTH:
-			wall->Length = cornerY + WallOffset;
-			break;
-		case WallDirection::NORTH_EAST:
-			wall->Length = Length - cornerX;
-			break;
-		case WallDirection::EAST:
-			wall->Length = cornerX + WallOffset;
-			break;
-		case WallDirection::SOUTH_EAST:
-			wall->Length = Width - cornerY;
-			break;
-		}
-	}
+	UpdateWallLength(Direction);
+	UpdateWallTransform(Direction);
+	UpdateWallAligment(Direction);
 
 	// Update wall segments
 	if (wall->Type == WallType::EMPTY)
@@ -250,8 +224,52 @@ void ARoom::UpdateWall(WallDirection Direction)
 		WallSegments[SegmentDirection::TOP]->SetRelativeLocation(FVector(0.0, wall->leftAligment, WindowHeightOffset + WindowHeight));
 		WallSegments[SegmentDirection::TOP]->SetRelativeScale3D(FVector(1.0, WindowWidth, Height - (WindowHeightOffset + WindowHeight)));
 	}
-	
-	UpdateWallTransform(Direction);
+}
+
+void ARoom::UpdateWallLength(WallDirection direction)
+{
+	auto wall = Walls[direction];
+
+	// Update wall scale
+	if (Type == RoomType::STANDARD)
+	{
+		switch (direction)
+		{
+		case WallDirection::NORTH:
+		case WallDirection::SOUTH:
+			wall->Length = Width + WallOffset;
+			break;
+		case WallDirection::WEST:
+		case WallDirection::EAST:
+			wall->Length = Length + WallOffset;
+			break;
+		}
+	}
+	else if (Type == RoomType::L_SHAPE)
+	{
+		switch (direction)
+		{
+		case WallDirection::SOUTH:
+			//TODO: Set relative loc
+			wall->Length = Width + WallOffset;
+			break;
+		case WallDirection::WEST:
+			wall->Length = Length + WallOffset;
+			break;
+		case WallDirection::NORTH:
+			wall->Length = cornerY + WallOffset;
+			break;
+		case WallDirection::NORTH_EAST:
+			wall->Length = Length - cornerX;
+			break;
+		case WallDirection::EAST:
+			wall->Length = cornerX + WallOffset;
+			break;
+		case WallDirection::SOUTH_EAST:
+			wall->Length = Width - cornerY;
+			break;
+		}
+	}
 }
 
 void ARoom::UpdateWallTransform(WallDirection direction)
@@ -314,18 +332,30 @@ void ARoom::UpdateWallTransform(WallDirection direction)
 
 void ARoom::UpdateAllWalls()
 {
-	// Create/update floor mesh
-	if (!IsValid(floor))
-		floor = AddStaticMeshComponent(FloorMesh, "Floor");
-	floor->SetRelativeLocation(FVector(0.0));
-	floor->SetRelativeScale3D(FVector(Length, Width, 1.0));
+	// Clamp room dimensions
+	if (Type == RoomType::STANDARD)
+	{
+		if (Length < minimalWallLength)
+			Length = minimalWallLength;
 
-	// Create/update ceiling mesh
-	if (!IsValid(ceiling))
-		ceiling = AddStaticMeshComponent(CeilingMesh, "Ceiling");
-	ceiling->SetRelativeLocation(FVector(0.0, 0.0, Height));
-	ceiling->SetRelativeScale3D(FVector(Length, Width, 1.0));
-	
+		if (Width < minimalWallLength)
+			Width = minimalWallLength;
+	}
+	else if (Type == RoomType::L_SHAPE)
+	{
+		if (Length < minimalWallLength * 2)
+			Length = minimalWallLength * 2;
+
+		if (Width < minimalWallLength * 2)
+			Width = minimalWallLength * 2;
+	}
+
+	// Update corners
+	SetCorner({ cornerX, cornerY }, false);
+
+	// Create/update floor mesh
+	UpdateFloor();
+
 	// Update wall segments
 	for (auto& p : Walls)
 	{
@@ -355,7 +385,7 @@ void ARoom::SetLeftAligment(WallDirection Direction, int value)
 	{
 		auto ObjWidth = ObjDimensions[wall->Type].Y;
 
-		auto WallWidth = (Direction == WallDirection::NORTH || Direction == WallDirection::SOUTH) ? Width : Length;
+		auto WallWidth = wall->Length - WallOffset;
 		wall->leftAligment = FMath::Clamp((float)value, AligmentOffset, WallWidth - AligmentOffset - ObjWidth);
 		wall->rightAligment = WallWidth - wall->leftAligment - ObjWidth;
 	}
@@ -367,13 +397,83 @@ void ARoom::SetRightAligment(WallDirection Direction, int value)
 {
 	auto wall = Walls[Direction];
 
-	auto ObjWidth = ObjDimensions[wall->Type].Y;
+	if (wall->Type != WallType::EMPTY)
+	{
+		auto ObjWidth = ObjDimensions[wall->Type].Y;
 
-	auto WallWidth = (Direction == WallDirection::NORTH || Direction == WallDirection::SOUTH) ? Width : Length;
-	wall->rightAligment = FMath::Clamp((float)value, AligmentOffset, WallWidth - AligmentOffset - ObjWidth);
-	wall->leftAligment = WallWidth - wall->rightAligment - ObjWidth;
+		auto WallWidth = wall->Length - WallOffset;
+		wall->rightAligment = FMath::Clamp((float)value, AligmentOffset, WallWidth - AligmentOffset - ObjWidth);
+		wall->leftAligment = WallWidth - wall->rightAligment - ObjWidth;
+	}
 
 	UpdateWall(Direction);
+}
+
+void ARoom::UpdateWallAligment(WallDirection direction)
+{
+	auto wall = Walls[direction];
+
+	if (wall->Type != WallType::EMPTY)
+	{
+		auto ObjWidth = ObjDimensions[wall->Type].Y;
+
+		auto WallWidth = wall->Length - WallOffset;
+		wall->leftAligment = FMath::Clamp((float)wall->leftAligment, AligmentOffset, WallWidth - AligmentOffset - ObjWidth);
+		wall->rightAligment = WallWidth - wall->leftAligment - ObjWidth;
+	}
+}
+
+void ARoom::SetCorner(FVector2D corner, bool needUpdateWalls)
+{
+	cornerX = FMath::Clamp(corner.X, minimalWallLength, Length - minimalWallLength);
+	cornerY = FMath::Clamp(corner.Y, minimalWallLength, Width - minimalWallLength);
+
+	// Update corner walls
+	if (needUpdateWalls)
+	{
+		UpdateWall(WallDirection::NORTH);
+		UpdateWall(WallDirection::EAST);
+		UpdateWall(WallDirection::NORTH_EAST);
+		UpdateWall(WallDirection::SOUTH_EAST);
+
+		UpdateFloor();
+	}
+}
+
+void ARoom::UpdateFloor()
+{
+	if (Type == RoomType::STANDARD)
+	{
+		floor1->SetRelativeLocation(FVector(0.0));
+		floor1->SetRelativeScale3D(FVector(Length, Width, 1.0));
+		floor1->SetVisibility(true);
+
+		// Create/update ceiling mesh
+		ceiling1->SetRelativeLocation(FVector(0.0, 0.0, Height));
+		ceiling1->SetRelativeScale3D(FVector(Length, Width, 1.0));
+		ceiling1->SetVisibility(true);
+	}
+	else if (Type == RoomType::L_SHAPE)
+	{
+		floor1->SetRelativeLocation(FVector(0.0, 0.0, 0.0));
+		floor1->SetRelativeScale3D(FVector(cornerX, Width, 1.0));
+
+		ceiling1->SetRelativeLocation(FVector(0.0, 0.0, Height));
+		ceiling1->SetRelativeScale3D(FVector(cornerX, Width, 1.0));
+
+		floor2->SetRelativeLocation(FVector(cornerX, 0.0, 0.0));
+		floor2->SetRelativeScale3D(FVector(Length - cornerX, cornerY, 1.0));
+
+		ceiling2->SetRelativeLocation(FVector(cornerX, 0.0, Height));
+		ceiling2->SetRelativeScale3D(FVector(Length - cornerX, cornerY, 1.0));
+
+		// Set visible
+		floor1->SetVisibility(true);
+		floor2->SetVisibility(true);
+		ceiling1->SetVisibility(true);
+		ceiling2->SetVisibility(true);
+	}
+	
 }
 
 UStaticMeshComponent* ARoom::AddStaticMeshComponent(UWallComponent* WallComponent, UStaticMesh* Mesh, FName Name)

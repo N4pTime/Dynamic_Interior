@@ -94,17 +94,17 @@ protected:
 	// Map for window and door dimensions
 	TMap<WallType, FVector> ObjDimensions;
 
-	UStaticMeshComponent* floor = nullptr;
-	UStaticMeshComponent* ceiling = nullptr;
+	UStaticMeshComponent* floor1 = nullptr;
+	UStaticMeshComponent* floor2 = nullptr;
+
+	UStaticMeshComponent* ceiling1 = nullptr;
+	UStaticMeshComponent* ceiling2 = nullptr;
 
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 	
 	UFUNCTION(BlueprintCallable)
 	void CreateRoom(RoomType type = RoomType::STANDARD);
-
-	UFUNCTION(BlueprintCallable)
-	void SetCorner(FIntPoint corner);
 
 	UFUNCTION(BlueprintCallable)
 	// Updates wall acording with door or window if they added
@@ -125,13 +125,23 @@ protected:
 	// Set aligment and update wall
 	void SetRightAligment(WallDirection direction, int value);
 
+	UFUNCTION(BlueprintCallable)
+	void SetCorner(FVector2D corner, bool needUpdateWalls = true);
+
+	UFUNCTION(BlueprintCallable)
+	// Clamp current left/right wall aligment
+	void UpdateWallAligment(WallDirection direction);
+
 	// Create and attach statuc mesh to wall component
 	UStaticMeshComponent* AddStaticMeshComponent(UWallComponent* WallComponent, UStaticMesh* Mesh, FName Name);
 
 	// Create and attach static mesh to room actor
 	UStaticMeshComponent* AddStaticMeshComponent(UStaticMesh* Mesh, FName Name);
 
+	void UpdateFloor();
+
 	void UpdateWallTransform(WallDirection direction);
+	void UpdateWallLength(WallDirection direction);
 
 	void ClampWallPosition(WallDirection direction);
 
