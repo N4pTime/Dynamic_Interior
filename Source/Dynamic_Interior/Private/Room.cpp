@@ -35,6 +35,9 @@ void ARoom::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	this->SetActorEnableCollision(true);
+
+	
 }
 
 void ARoom::CreateRoom(RoomType type)
@@ -64,7 +67,7 @@ void ARoom::CreateRoom(RoomType type)
 			{
 				SegmentDirection segdir = static_cast<SegmentDirection>(i);
 
-				auto WallSegment = AddStaticMeshComponent(wall, WallMesh, FName(wall->GetName() + "_Segment" + FString::FromInt(i)));
+				auto WallSegment = (UObjectComponent*)AddStaticMeshComponent(wall, WallMesh, FName(wall->GetName() + "_Segment" + FString::FromInt(i)));
 				wall->WallSegments.Add(segdir, WallSegment);
 
 				// WallSegment->SetVisibility(false);
@@ -102,7 +105,7 @@ void ARoom::CreateRoom(RoomType type)
 			{
 				SegmentDirection segdir = static_cast<SegmentDirection>(i);
 
-				auto WallSegment = AddStaticMeshComponent(wall, WallMesh, FName(wall->GetName() + "_Segment" + FString::FromInt(i)));
+				auto WallSegment = (UObjectComponent*)AddStaticMeshComponent(wall, WallMesh, FName(wall->GetName() + "_Segment" + FString::FromInt(i)));
 				wall->WallSegments.Add(segdir, WallSegment);
 
 				// WallSegment->SetVisibility(false);
@@ -365,6 +368,30 @@ void ARoom::UpdateAllWalls()
 		// Update aligments
 		SetLeftAligment(Direction, wall->leftAligment);
 	}
+}
+
+void ARoom::AddObjectToWall(UWallComponent* wall, float localPos, WallType type)
+{
+	if (!IsValid(wall) || wall->Type != WallType::EMPTY)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Wall component was null."));
+		return;
+	}
+
+	FVector objWidth;
+	if (type == WallType::WITH_DOOR)
+	{
+		objWidth = ObjDimensions[WallType::WITH_DOOR];
+	}
+	else if (type == WallType::WITH_WINDOW)
+	{
+		objWidth = ObjDimensions[WallType::WITH_WINDOW];
+	}
+
+	wall->Type = type;
+
+	// Update aligments
+	SetLeftAligment(wall->Direction, localPos - objWidth.Y / 2.0);
 }
 
 void ARoom::SetWallType(WallDirection Direction, WallType type)

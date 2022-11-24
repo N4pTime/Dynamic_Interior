@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "Components/SceneComponent.h"
+#include "ObjectComponent.h"
+
 #include "WallComponent.generated.h"
 
 UENUM(BlueprintType)
@@ -55,12 +57,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	int rightAligment = 20;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float Length;
 
 	UPROPERTY()
 	// For storing door or window mesh if exist
 	UStaticMeshComponent* Object = nullptr;
-	TMap<SegmentDirection, UStaticMeshComponent*> WallSegments;
+	TMap<SegmentDirection, UObjectComponent*> WallSegments;
 
 	// Sets default values for this component's properties
 	UWallComponent();

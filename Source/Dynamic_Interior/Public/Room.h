@@ -118,6 +118,10 @@ protected:
 	void SetWallType(WallDirection direction, WallType type);
 
 	UFUNCTION(BlueprintCallable)
+	// Add door/window or remove it and update wall
+	void AddObjectToWall(UWallComponent* wall, float localPos, WallType type);
+
+	UFUNCTION(BlueprintCallable)
 	// Set aligment and update wall
 	void SetLeftAligment(WallDirection direction, int value);
 
