@@ -55,11 +55,11 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurator properties|Meshes")
 	UStaticMesh* CeilingMesh = nullptr;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurator properties|Meshes")
-	UStaticMesh* DoorMesh	 = nullptr;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurator properties|Meshes|Doors")
+	TArray<UStaticMesh*> DoorMeshes;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurator properties|Meshes")
-	UStaticMesh* WindowMesh	 = nullptr;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurator properties|Meshes|Windows")
+	TArray<UStaticMesh*> WindowMeshes;
 
 	// Offsets
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configurator properties|Offsets", DisplayName = "Wall Offset")
@@ -92,7 +92,7 @@ protected:
 	TMap<WallDirection, UWallComponent*> Walls;
 
 	// Map for window and door dimensions
-	TMap<WallType, FVector> ObjDimensions;
+	TMap<ObjectType, FVector> ObjDimensions;
 
 	UStaticMeshComponent* floor1 = nullptr;
 	UStaticMeshComponent* floor2 = nullptr;
@@ -115,32 +115,18 @@ protected:
 
 	UFUNCTION(BlueprintCallable)
 	// Add door/window or remove it and update wall
-	void SetWallType(WallDirection direction, WallType type);
-
-	UFUNCTION(BlueprintCallable)
-	// Add door/window or remove it and update wall
-	void AddObjectToWall(UWallComponent* wall, float localPos, WallType type);
-
-	UFUNCTION(BlueprintCallable)
-	// Set aligment and update wall
-	void SetLeftAligment(WallDirection direction, int value);
-
-	UFUNCTION(BlueprintCallable)
-	// Set aligment and update wall
-	void SetRightAligment(WallDirection direction, int value);
+	void AddObjectToWall(UWallComponent* wall, float localPos, ObjectType type, int index = 0);
 
 	UFUNCTION(BlueprintCallable)
 	void SetCorner(FVector2D corner, bool needUpdateWalls = true);
-
-	UFUNCTION(BlueprintCallable)
-	// Clamp current left/right wall aligment
-	void UpdateWallAligment(WallDirection direction);
 
 	// Create and attach statuc mesh to wall component
 	UStaticMeshComponent* AddStaticMeshComponent(UWallComponent* WallComponent, UStaticMesh* Mesh, FName Name);
 
 	// Create and attach static mesh to room actor
 	UStaticMeshComponent* AddStaticMeshComponent(UStaticMesh* Mesh, FName Name);
+
+	void PrepareWallSegments(UWallComponent* wall);
 
 	void UpdateFloor();
 

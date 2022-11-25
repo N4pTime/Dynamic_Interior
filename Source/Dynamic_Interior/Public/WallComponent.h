@@ -9,14 +9,6 @@
 #include "WallComponent.generated.h"
 
 UENUM(BlueprintType)
-enum class WallType : uint8
-{
-	EMPTY		UMETA(DisplayName = "Empty"),
-	WITH_DOOR	UMETA(DisplayName = "With Door"),
-	WITH_WINDOW	UMETA(DisplayName = "With Window")
-};
-
-UENUM(BlueprintType)
 enum class WallDirection : uint8
 {
 	NORTH = 0	UMETA(DisplayName = "North"), // X+
@@ -46,9 +38,6 @@ class DYNAMIC_INTERIOR_API UWallComponent : public USceneComponent
 public:	
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	WallType Type = WallType::EMPTY;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	WallDirection Direction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
@@ -62,8 +51,13 @@ public:
 
 	UPROPERTY()
 	// For storing door or window mesh if exist
-	UStaticMeshComponent* Object = nullptr;
-	TMap<SegmentDirection, UObjectComponent*> WallSegments;
+	TArray<UObjectComponent*> Objects;
+
+	// Segments between objects
+	TArray<TWeakObjectPtr<UStaticMeshComponent>> HorizontalSegments;
+
+	// Segments below and above objects
+	TArray<TWeakObjectPtr<UStaticMeshComponent>> VerticalSegments;
 
 	// Sets default values for this component's properties
 	UWallComponent();
