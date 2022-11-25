@@ -110,10 +110,6 @@ void ARoom::UpdateWall(WallDirection Direction)
 	// Update wall scale
 	UpdateWallLength(Direction);
 	UpdateWallTransform(Direction);
-	// UpdateWallAligment(Direction);
-	
-	// TODO: где-то ранее добавить объект к стене
-	
 	PrepareWallSegments(wall);
 
 	// Update wall segments
@@ -200,8 +196,6 @@ void ARoom::UpdateWall(WallDirection Direction)
 
 void ARoom::PrepareWallSegments(UWallComponent* wall)
 {
-	// TODO: If there are no doors/windows
-
 	int numDoors = 0;
 	int numWindows = 0;
 
@@ -248,7 +242,6 @@ void ARoom::PrepareWallSegments(UWallComponent* wall)
 
 			auto index = wall->VerticalSegments.Find(segment);
 			FName name = FName(wall->GetName() + "_SegV" + FString::FromInt(index));
-
 
 			segment = MakeWeakObjectPtr<UStaticMeshComponent>(AddStaticMeshComponent(wall, WallMesh, name));
 		}
@@ -392,7 +385,7 @@ void ARoom::UpdateAllWalls()
 		auto& wall = p.Value;
 
 		// Update aligments
-		// TODO: Обновить offset объектов
+		// TODO: Чекать offset объектов
 		
 		// SetLeftAligment(Direction, wall->leftAligment);
 
@@ -408,12 +401,98 @@ void ARoom::AddObjectToWall(UWallComponent* wall, float localPos, ObjectType typ
 		return;
 	}
 
+	// Get static mesh
 	UStaticMesh* Mesh = nullptr;
 	if (type == ObjectType::DOOR)
-		Mesh = DoorMeshes[0];
+		Mesh = DoorMeshes[index];
 	else if (type == ObjectType::WINDOW)
-		Mesh = WindowMeshes[0];
+		Mesh = WindowMeshes[index];
 
+	// Get mesh dimensions
+	FVector meshDimensions	= GetStaticMeshDimensions(Mesh);
+	float meshOffset		= (int)(localPos - meshDimensions.Y / 2.0);
+	float requiredSpace		= meshDimensions.Y + 2 * AligmentOffset;
+
+	// Correct object placing
+	if (wall->Objects.Num() != 0)
+	{
+		// Search for right object
+		auto obj = wall->Objects.FindByPredicate([&localPos](const UObjectComponent* comp)
+			{
+				return comp->offset > localPos;
+			});
+
+		// 1. Check on the left of the right object
+		if (nullptr != obj)
+		{
+			// Get left obj
+			auto rightObj = *obj;
+			auto rightObjIndex  = wall->Objects.Find(rightObj);
+
+			// 2. Check space between left and right objects
+			if (rightObjIndex != 0)
+			{
+				auto leftObj  = wall->Objects[rightObjIndex - 1];
+
+				// Awaible space between two objs
+				float awaibleSpace = rightObj->offset - (leftObj->offset + leftObj->GetDimensions().Y);
+
+				// If awaible space less than mesh width + two offsets -> return
+				if (awaibleSpace < requiredSpace)
+					return;
+
+				// Check where need to clamp
+				// If true -> close to rightObject
+				if (rightObj->offset - localPos < localPos - (leftObj->offset + leftObj->GetDimensions().Y))
+				{
+					// Clamp offset for current object
+					if (meshOffset > rightObj->offset - meshDimensions.Y - AligmentOffset)
+						meshOffset = rightObj->offset - meshDimensions.Y - AligmentOffset;
+				}
+				// If true -> close to leftObject
+				else
+				{
+					// Clamp offset for current object
+					if (meshOffset < leftObj->offset + leftObj->GetDimensions().Y + AligmentOffset)
+						meshOffset = leftObj->offset + leftObj->GetDimensions().Y + AligmentOffset;
+				}
+			}
+			else
+			{
+				// Awaible space between two objs
+				float awaibleSpace = rightObj->offset;
+
+				// If awaible space less than mesh width + two offsets -> return
+				if (awaibleSpace < requiredSpace)
+					return;
+
+				// Clamp offset for current object
+				if (meshOffset > rightObj->offset - meshDimensions.Y - AligmentOffset)
+					meshOffset = rightObj->offset - meshDimensions.Y - AligmentOffset;
+			}
+		}
+		// 3. Check on the right of the last object
+		else
+		{
+			auto lastObj = wall->Objects.Last();
+
+			// Check if clicked on lastObj space
+			if (lastObj->offset + lastObj->GetDimensions().Y > localPos)
+				return;
+
+			// Awaible space between two objs
+			float awaibleSpace = wall->Length - (lastObj->offset + lastObj->GetDimensions().Y);
+
+			// If awaible space less than mesh width + two offsets -> return
+			if (awaibleSpace < requiredSpace)
+				return;
+
+			// Clamp offset for current object
+			if (meshOffset < lastObj->offset + lastObj->GetDimensions().Y + AligmentOffset)
+				meshOffset = lastObj->offset + lastObj->GetDimensions().Y + AligmentOffset;
+		}
+	}
+	
 	// Create object and attach to wall component
 	auto name = FName(wall->GetName() + "Obj" + FString::FromInt(wall->Objects.Num()));
 	auto obj = NewObject<UObjectComponent>(wall, UObjectComponent::StaticClass(), name);
@@ -431,12 +510,12 @@ void ARoom::AddObjectToWall(UWallComponent* wall, float localPos, ObjectType typ
 
 	AddInstanceComponent(obj);
 
-	auto objWidth = obj->GetDimensions().Y;
-	obj->offset = (int)(localPos - objWidth / 2.0);
+	// Clamp obj offset between wall corners
+	obj->offset = FMath::Clamp(meshOffset, AligmentOffset, wall->Length - (AligmentOffset * 2 + meshDimensions.Y));
 
-	// Update aligments
+	// Add object to wall component
 	wall->Objects.Add(obj);
-
+	 
 	// Update wall
 	auto direction = Walls.FindKey(wall);
 	UpdateWall(*direction);
