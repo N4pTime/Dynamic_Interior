@@ -118,7 +118,7 @@ void ARoom::UpdateWall(WallDirection Direction)
 		auto WallSegment = wall->HorizontalSegments[0];
 
 		WallSegment->SetRelativeLocation(FVector(0.0, 0.0, 0.0));
-		WallSegment->SetWorldScale3D(FVector(1.0, wall->Length, Height));
+		WallSegment->SetWorldScale3D(FVector(1.0, wall->ActualLength, Height));
 	}
 	else
 	{
@@ -137,7 +137,7 @@ void ARoom::UpdateWall(WallDirection Direction)
 			if (idx == wall->HorizontalSegments.Num() - 1)
 			{
 				segment->SetRelativeLocation(FVector(0.0, currentOffset, 0.0));
-				segment->SetRelativeScale3D(FVector(1.0, wall->Length - currentOffset, Height));
+				segment->SetRelativeScale3D(FVector(1.0, wall->ActualLength - currentOffset, Height));
 			}
 			else
 			{
@@ -259,11 +259,13 @@ void ARoom::UpdateWallLength(WallDirection direction)
 		{
 		case WallDirection::NORTH:
 		case WallDirection::SOUTH:
-			wall->Length = Width + WallOffset;
+			wall->Length = Width;
+			wall->ActualLength = Width + WallOffset;
 			break;
 		case WallDirection::WEST:
 		case WallDirection::EAST:
-			wall->Length = Length + WallOffset;
+			wall->Length = Length;
+			wall->ActualLength = Length + WallOffset;
 			break;
 		}
 	}
@@ -273,22 +275,28 @@ void ARoom::UpdateWallLength(WallDirection direction)
 		{
 		case WallDirection::SOUTH:
 			//TODO: Set relative loc
-			wall->Length = Width + WallOffset;
+			wall->Length = Width;
+			wall->ActualLength = Width + WallOffset;
 			break;
 		case WallDirection::WEST:
-			wall->Length = Length + WallOffset;
+			wall->Length = Length;
+			wall->ActualLength = Length + WallOffset;
 			break;
 		case WallDirection::NORTH:
-			wall->Length = cornerY + WallOffset;
+			wall->Length = cornerY;
+			wall->ActualLength = cornerY + WallOffset;
 			break;
 		case WallDirection::NORTH_EAST:
 			wall->Length = Length - cornerX;
+			wall->ActualLength = Length - cornerX;
 			break;
 		case WallDirection::EAST:
-			wall->Length = cornerX + WallOffset;
+			wall->Length = cornerX;
+			wall->ActualLength = cornerX + WallOffset;
 			break;
 		case WallDirection::SOUTH_EAST:
 			wall->Length = Width - cornerY;
+			wall->ActualLength = Width - cornerY;
 			break;
 		}
 	}
@@ -511,14 +519,13 @@ void ARoom::AddObjectToWall(UWallComponent* wall, float localPos, ObjectType typ
 	AddInstanceComponent(obj);
 
 	// Clamp obj offset between wall corners
-	obj->offset = FMath::Clamp(meshOffset, AligmentOffset, wall->Length - (AligmentOffset * 2 + meshDimensions.Y));
+	obj->offset = FMath::Clamp(meshOffset, AligmentOffset, wall->Length - (AligmentOffset + meshDimensions.Y));
 
 	// Add object to wall component
 	wall->Objects.Add(obj);
 	 
 	// Update wall
-	auto direction = Walls.FindKey(wall);
-	UpdateWall(*direction);
+	UpdateWall(wall->Direction);
 }
 
 void ARoom::SetCorner(FVector2D corner, bool needUpdateWalls)

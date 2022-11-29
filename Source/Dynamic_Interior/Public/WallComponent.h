@@ -48,6 +48,7 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float Length;
+	float ActualLength;
 
 	UPROPERTY()
 	// For storing door or window mesh if exist
