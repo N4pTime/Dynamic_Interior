@@ -22,7 +22,7 @@ void ARoom::BeginPlay()
 		return;
 	}
 
-	CreateRoom(RoomType::STANDARD);
+	CreateRoom(RoomType::L_SHAPE);
 }
 
 // Called every frame
@@ -287,7 +287,7 @@ void ARoom::UpdateWallLength(WallDirection direction)
 			wall->ActualLength = cornerY + WallOffset;
 			break;
 		case WallDirection::NORTH_EAST:
-			wall->Length = Length - cornerX;
+			wall->Length = Length - cornerX - WallOffset;
 			wall->ActualLength = Length - cornerX;
 			break;
 		case WallDirection::EAST:
@@ -295,7 +295,7 @@ void ARoom::UpdateWallLength(WallDirection direction)
 			wall->ActualLength = cornerX + WallOffset;
 			break;
 		case WallDirection::SOUTH_EAST:
-			wall->Length = Width - cornerY;
+			wall->Length = Width - cornerY - WallOffset;
 			wall->ActualLength = Width - cornerY;
 			break;
 		}
