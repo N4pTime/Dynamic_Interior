@@ -22,7 +22,7 @@ void ARoom::BeginPlay()
 		return;
 	}
 
-	CreateRoom(RoomType::L_SHAPE);
+	CreateRoom(RoomType::STANDARD);
 }
 
 // Called every frame
@@ -363,70 +363,7 @@ void ARoom::UpdateWallTransform(WallDirection direction)
 void ARoom::UpdateAllWalls()
 {
 	// Clamp room dimensions
-	if (Type == RoomType::STANDARD)
-	{
-		// Check minimal length
-		int minLength = minimalWallLength;
-
-		auto w1 = Walls[WallDirection::WEST];
-		if (w1->Objects.Num() > 0)
-		{
-			auto obj = w1->Objects.Last();
-			int min = obj->offset + obj->GetDimensions().Y + AligmentOffset;
-			if (minLength < min)
-				minLength = min;
-		}
-
-		auto w2 = Walls[WallDirection::EAST];
-		if (w2->Objects.Num() > 0)
-		{
-			auto obj = w2->Objects[0];
-			int min = w2->Length - (obj->offset - AligmentOffset);
-			if (minLength < min)
-				minLength = min;
-
-			for (auto& ob : w2->Objects)
-				ob->offset -= (obj->offset - AligmentOffset);
-		}
-
-		if (Length < minLength)
-			Length = minLength;
-
-		// Check minimal width
-		int minWidth = minimalWallLength;
-
-		auto w3 = Walls[WallDirection::NORTH];
-		if (w3->Objects.Num() > 0)
-		{
-			auto obj = w3->Objects.Last();
-			int min = obj->offset + obj->GetDimensions().Y + AligmentOffset;
-			if (minWidth < min)
-				minWidth = min;
-		}
-
-		auto w4 = Walls[WallDirection::SOUTH];
-		if (w4->Objects.Num() > 0)
-		{
-			auto obj = w4->Objects[0];
-			int min = w4->Length - (obj->offset - AligmentOffset);
-			if (minWidth < min)
-				minWidth = min;
-
-			for (auto& ob : w4->Objects)
-				ob->offset -= (obj->offset - AligmentOffset);
-		}
-
-		if (Width < minWidth)
-			Width = minWidth;
-	}
-	else if (Type == RoomType::L_SHAPE)
-	{
-		if (Length < minimalWallLength * 2)
-			Length = minimalWallLength * 2;
-
-		if (Width < minimalWallLength * 2)
-			Width = minimalWallLength * 2;
-	}
+	ClampDimensions();
 
 	// Update corners
 	SetCorner({ cornerX, cornerY }, false);
@@ -574,6 +511,147 @@ void ARoom::AddObjectToWall(UWallComponent* wall, float localPos, ObjectType typ
 	 
 	// Update wall
 	UpdateWall(wall->Direction);
+}
+
+void ARoom::ClampDimensions()
+{
+	if (Type == RoomType::STANDARD)
+	{
+		// Check minimal length
+		int minLength = minimalWallLength;
+
+		auto w1 = Walls[WallDirection::WEST];
+		if (w1->Objects.Num() > 0)
+		{
+			auto obj = w1->Objects.Last();
+			int min = obj->offset + obj->GetDimensions().Y + AligmentOffset;
+			if (minLength < min)
+				minLength = min;
+		}
+
+		float deltaLength = Length - w1->Length;
+
+		auto w2 = Walls[WallDirection::EAST];
+		if (w2->Objects.Num() > 0)
+		{
+			auto obj = w2->Objects[0];
+
+			int min = w2->Length - (obj->offset - AligmentOffset);
+			if (minLength < min)
+				minLength = min;
+
+			for (auto& ob : w2->Objects)
+				ob->offset += deltaLength;
+		}
+
+		if (Length < minLength)
+			Length = minLength;
+
+		// Check minimal width
+		int minWidth = minimalWallLength;
+
+		auto w3 = Walls[WallDirection::NORTH];
+		if (w3->Objects.Num() > 0)
+		{
+			auto obj = w3->Objects.Last();
+			int min = obj->offset + obj->GetDimensions().Y + AligmentOffset;
+			if (minWidth < min)
+				minWidth = min;
+		}
+
+		auto w4 = Walls[WallDirection::SOUTH];
+		if (w4->Objects.Num() > 0)
+		{
+			auto obj = w4->Objects[0];
+			int min = w4->Length - (obj->offset - AligmentOffset);
+			if (minWidth < min)
+				minWidth = min;
+
+			for (auto& ob : w4->Objects)
+				ob->offset -= (obj->offset - AligmentOffset);
+		}
+
+		if (Width < minWidth)
+			Width = minWidth;
+	}
+	else if (Type == RoomType::L_SHAPE)
+	{
+		// Check minimal length
+		int minLength = minimalWallLength * 2;
+
+		auto w1 = Walls[WallDirection::WEST];
+		if (w1->Objects.Num() > 0)
+		{
+			auto obj = w1->Objects.Last();
+			int min = obj->offset + obj->GetDimensions().Y + AligmentOffset;
+			if (minLength < min)
+				minLength = min;
+		}
+
+		auto w2 = Walls[WallDirection::NORTH_EAST];
+		auto w3 = Walls[WallDirection::EAST];
+
+		if (w2->Objects.Num() > 0)
+		{
+			auto obj = w2->Objects[0];
+			int min = (cornerX + w2->Length) - (obj->offset - AligmentOffset);
+
+			if (minLength < min)
+				minLength = min;
+
+			for (auto& ob : w2->Objects)
+				ob->offset -= (obj->offset - AligmentOffset);
+		}
+		
+
+		/*auto w3 = Walls[WallDirection::NORTH_EAST];
+		if (w3->Objects.Num() > 0)
+		{
+			auto obj = w3->Objects[0];
+			int min = w3->Length - (obj->offset - AligmentOffset);
+			if (minLength < min)
+				minLength = min;
+
+			for (auto& ob : w3->Objects)
+				ob->offset -= (obj->offset - AligmentOffset);
+		}*/
+
+		if (Length < minLength)
+			Length = minLength;
+
+		// Check minimal width
+		/*int minWidth = minimalWallLength;
+
+		auto w3 = Walls[WallDirection::NORTH];
+		if (w3->Objects.Num() > 0)
+		{
+			auto obj = w3->Objects.Last();
+			int min = obj->offset + obj->GetDimensions().Y + AligmentOffset;
+			if (minWidth < min)
+				minWidth = min;
+		}
+
+		auto w4 = Walls[WallDirection::SOUTH];
+		if (w4->Objects.Num() > 0)
+		{
+			auto obj = w4->Objects[0];
+			int min = w4->Length - (obj->offset - AligmentOffset);
+			if (minWidth < min)
+				minWidth = min;
+
+			for (auto& ob : w4->Objects)
+				ob->offset -= (obj->offset - AligmentOffset);
+		}
+
+		if (Width < minWidth)
+			Width = minWidth;*/
+
+		/*if (Length < minimalWallLength * 2)
+			Length = minimalWallLength * 2;
+
+		if (Width < minimalWallLength * 2)
+			Width = minimalWallLength * 2;*/
+	}
 }
 
 void ARoom::SetCorner(FVector2D corner, bool needUpdateWalls)

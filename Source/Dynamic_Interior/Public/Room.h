@@ -114,6 +114,9 @@ protected:
 	void UpdateAllWalls();
 
 	UFUNCTION(BlueprintCallable)
+	void ClampDimensions();
+
+	UFUNCTION(BlueprintCallable)
 	// Add door/window or remove it and update wall
 	void AddObjectToWall(UWallComponent* wall, float localPos, ObjectType type, int index = 0);
 
