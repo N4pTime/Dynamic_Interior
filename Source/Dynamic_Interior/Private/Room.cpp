@@ -365,11 +365,59 @@ void ARoom::UpdateAllWalls()
 	// Clamp room dimensions
 	if (Type == RoomType::STANDARD)
 	{
-		if (Length < minimalWallLength)
-			Length = minimalWallLength;
+		// Check minimal length
+		int minLength = minimalWallLength;
 
-		if (Width < minimalWallLength)
-			Width = minimalWallLength;
+		auto w1 = Walls[WallDirection::WEST];
+		if (w1->Objects.Num() > 0)
+		{
+			auto obj = w1->Objects.Last();
+			int min = obj->offset + obj->GetDimensions().Y + AligmentOffset;
+			if (minLength < min)
+				minLength = min;
+		}
+
+		auto w2 = Walls[WallDirection::EAST];
+		if (w2->Objects.Num() > 0)
+		{
+			auto obj = w2->Objects[0];
+			int min = w2->Length - (obj->offset - AligmentOffset);
+			if (minLength < min)
+				minLength = min;
+
+			for (auto& ob : w2->Objects)
+				ob->offset -= (obj->offset - AligmentOffset);
+		}
+
+		if (Length < minLength)
+			Length = minLength;
+
+		// Check minimal width
+		int minWidth = minimalWallLength;
+
+		auto w3 = Walls[WallDirection::NORTH];
+		if (w3->Objects.Num() > 0)
+		{
+			auto obj = w3->Objects.Last();
+			int min = obj->offset + obj->GetDimensions().Y + AligmentOffset;
+			if (minWidth < min)
+				minWidth = min;
+		}
+
+		auto w4 = Walls[WallDirection::SOUTH];
+		if (w4->Objects.Num() > 0)
+		{
+			auto obj = w4->Objects[0];
+			int min = w4->Length - (obj->offset - AligmentOffset);
+			if (minWidth < min)
+				minWidth = min;
+
+			for (auto& ob : w4->Objects)
+				ob->offset -= (obj->offset - AligmentOffset);
+		}
+
+		if (Width < minWidth)
+			Width = minWidth;
 	}
 	else if (Type == RoomType::L_SHAPE)
 	{
