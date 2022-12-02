@@ -26,6 +26,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	ObjectType type;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float offset = 0.0;
 
 	UFUNCTION(BlueprintCallable)

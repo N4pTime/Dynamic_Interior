@@ -8,7 +8,6 @@ ARoom::ARoom()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
-
 }
 
 // Called when the game starts or when spawned
@@ -23,6 +22,8 @@ void ARoom::BeginPlay()
 	}
 
 	CreateRoom(RoomType::STANDARD);
+
+	
 }
 
 // Called every frame
@@ -33,6 +34,14 @@ void ARoom::Tick(float DeltaTime)
 	this->SetActorEnableCollision(true);
 
 	
+}
+
+void ARoom::EnableBoundingBoxes(bool value)
+{
+	auto type = value ? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision;
+
+	for (auto& boxComponent : WallBoundingBoxes)
+		boxComponent->SetCollisionEnabled(type);
 }
 
 void ARoom::CreateRoom(RoomType type)
@@ -51,10 +60,23 @@ void ARoom::CreateRoom(RoomType type)
 			// Keep references for editing door/window aligments
 			Walls.Add(dir, wall);
 
+			static FAttachmentTransformRules rules(EAttachmentRule::KeepRelative, false);
+			wall->AttachToComponent(this->RootComponent, rules);
+			AddInstanceComponent(wall);
+
 			wall->RegisterComponent();
-			wall->AttachTo(this->RootComponent);
 
 			wall->Direction = dir;
+
+			// Add bounding box to array
+			WallBoundingBoxes.Add(wall->BoundingBox);
+
+			// Create corner segment
+			auto cornerMesh = AddStaticMeshComponent(WallMesh, FName("Corner" + FString::FromInt(idx + 1)));
+			CornerSegments.Add(MakeWeakObjectPtr(cornerMesh));
+
+			cornerMesh->RegisterComponent();
+			cornerMesh->AttachToComponent(this->RootComponent, rules);
 		}
 
 		// Prepare floor mesh
@@ -77,10 +99,22 @@ void ARoom::CreateRoom(RoomType type)
 			// Keep references for editing door/window aligments
 			Walls.Add(dir, wall);
 
+			static FAttachmentTransformRules rules(EAttachmentRule::KeepRelative, false);
+			wall->AttachToComponent(this->RootComponent, rules);
+
 			wall->RegisterComponent();
-			wall->AttachTo(this->RootComponent);
 
 			wall->Direction = dir;
+
+			// Add bounding box to array
+			WallBoundingBoxes.Add(wall->BoundingBox);
+
+			// Create corner segment
+			auto cornerMesh = AddStaticMeshComponent(WallMesh, FName("Corner" + FString::FromInt(idx + 1)));
+			CornerSegments.Add(MakeWeakObjectPtr(cornerMesh));
+
+			cornerMesh->RegisterComponent();
+			cornerMesh->AttachToComponent(this->RootComponent, rules);
 		}
 
 		// Prepare floor mesh
@@ -98,6 +132,9 @@ void ARoom::CreateRoom(RoomType type)
 		ceiling2->SetVisibility(false);
 	}
 
+	// Disable bounding boxed
+	EnableBoundingBoxes(false);
+
 	// Create room
 	UpdateAllWalls();
 }
@@ -108,7 +145,6 @@ void ARoom::UpdateWall(WallDirection Direction)
 	auto wall = Walls[Direction];
 
 	// Update wall scale
-	UpdateWallLength(Direction);
 	UpdateWallTransform(Direction);
 	PrepareWallSegments(wall);
 
@@ -118,7 +154,7 @@ void ARoom::UpdateWall(WallDirection Direction)
 		auto WallSegment = wall->HorizontalSegments[0];
 
 		WallSegment->SetRelativeLocation(FVector(0.0, 0.0, 0.0));
-		WallSegment->SetWorldScale3D(FVector(1.0, wall->ActualLength, Height));
+		WallSegment->SetWorldScale3D(FVector(1.0, wall->Length, Height));
 	}
 	else
 	{
@@ -137,7 +173,7 @@ void ARoom::UpdateWall(WallDirection Direction)
 			if (idx == wall->HorizontalSegments.Num() - 1)
 			{
 				segment->SetRelativeLocation(FVector(0.0, currentOffset, 0.0));
-				segment->SetRelativeScale3D(FVector(1.0, wall->ActualLength - currentOffset, Height));
+				segment->SetRelativeScale3D(FVector(1.0, wall->Length - currentOffset, Height));
 			}
 			else
 			{
@@ -188,6 +224,17 @@ void ARoom::UpdateWall(WallDirection Direction)
 				break;
 			case ObjectType::WINDOW:
 				obj->SetRelativeLocation(FVector(WindowOffset, obj->offset, WindowHeightOffset));
+				break;
+			}
+
+			// Rotate obj by 180 degrees if needed
+			switch (wall->Direction)
+			{
+			case WallDirection::SOUTH:
+			case WallDirection::EAST:
+			case WallDirection::NORTH_EAST:
+				obj->SetWorldRotation(wall->GetComponentRotation().Vector().RotateAngleAxis(180.0f, FVector(0.0, 0.0, 1.0f)).Rotation());
+				obj->AddRelativeLocation(FVector(WallOffset / 2.0, obj->GetDimensions().Y, 0.0));
 				break;
 			}
 		}
@@ -260,12 +307,10 @@ void ARoom::UpdateWallLength(WallDirection direction)
 		case WallDirection::NORTH:
 		case WallDirection::SOUTH:
 			wall->Length = Width;
-			wall->ActualLength = Width + WallOffset;
 			break;
 		case WallDirection::WEST:
 		case WallDirection::EAST:
 			wall->Length = Length;
-			wall->ActualLength = Length + WallOffset;
 			break;
 		}
 	}
@@ -276,27 +321,21 @@ void ARoom::UpdateWallLength(WallDirection direction)
 		case WallDirection::SOUTH:
 			//TODO: Set relative loc
 			wall->Length = Width;
-			wall->ActualLength = Width + WallOffset;
 			break;
 		case WallDirection::WEST:
 			wall->Length = Length;
-			wall->ActualLength = Length + WallOffset;
 			break;
 		case WallDirection::NORTH:
 			wall->Length = cornerY;
-			wall->ActualLength = cornerY + WallOffset;
 			break;
 		case WallDirection::NORTH_EAST:
 			wall->Length = Length - cornerX - WallOffset;
-			wall->ActualLength = Length - cornerX;
 			break;
 		case WallDirection::EAST:
 			wall->Length = cornerX;
-			wall->ActualLength = cornerX + WallOffset;
 			break;
 		case WallDirection::SOUTH_EAST:
 			wall->Length = Width - cornerY - WallOffset;
-			wall->ActualLength = Width - cornerY;
 			break;
 		}
 	}
@@ -306,25 +345,32 @@ void ARoom::UpdateWallTransform(WallDirection direction)
 {
 	auto wall = Walls[direction];
 
+	UpdateWallLength(direction);
+
+	// Update wall box component transform
+	wall->BoundingBox->SetRelativeLocation(FVector(AligmentOffset / 2.0, wall->Length / 2.0, Height / 2.0));
+	wall->BoundingBox->SetRelativeScale3D(FVector(AligmentOffset + 0.001, wall->Length, Height * 1.3) / 100.0);
+
+	// Update wall world position
 	if (Type == RoomType::STANDARD)
 	{
 		switch (wall->Direction)
 		{
 		case WallDirection::NORTH:
 			wall->SetWorldRotation(GetActorRotation().Vector().RotateAngleAxis(0.0f, FVector(0.0, 0.0, 1.0f)).Rotation());
-			wall->SetRelativeLocation(FVector(Length, 0.0, 0.0));
+			wall->SetRelativeLocation(FVector(wall->Length, 0.0, 0.0));
 			break;
 		case WallDirection::SOUTH:
-			wall->SetWorldRotation(GetActorRotation().Vector().RotateAngleAxis(180.0f, FVector(0.0, 0.0, 1.0f)).Rotation());
-			wall->SetRelativeLocation(FVector(0.0, Width, 0.0));
+			wall->SetWorldRotation(GetActorRotation().Vector().RotateAngleAxis(0.0f, FVector(0.0, 0.0, 1.0f)).Rotation());
+			wall->SetRelativeLocation(FVector(-WallOffset, 0.0, 0.0));
 			break;
 		case WallDirection::WEST:
 			wall->SetWorldRotation(GetActorRotation().Vector().RotateAngleAxis(-90.0f, FVector(0.0, 0.0, 1.0f)).Rotation());
 			wall->SetRelativeLocation(FVector(0.0, 0.0, 0.0));
 			break;
 		case WallDirection::EAST:
-			wall->SetWorldRotation(GetActorRotation().Vector().RotateAngleAxis(90.0f, FVector(0.0, 0.0, 1.0f)).Rotation());
-			wall->SetRelativeLocation(FVector(Length, Width, 0.0));
+			wall->SetWorldRotation(GetActorRotation().Vector().RotateAngleAxis(-90.0f, FVector(0.0, 0.0, 1.0f)).Rotation());
+			wall->SetRelativeLocation(FVector(0.0, wall->Length + WallOffset, 0.0));
 			break;
 		}
 	}
@@ -334,23 +380,23 @@ void ARoom::UpdateWallTransform(WallDirection direction)
 		{
 		case WallDirection::NORTH:
 			wall->SetWorldRotation(GetActorRotation().Vector().RotateAngleAxis(0.0f, FVector(0.0, 0.0, 1.0f)).Rotation());
-			wall->SetRelativeLocation(FVector(Length, 0.0, 0.0));
+			wall->SetRelativeLocation(FVector(wall->Length, 0.0, 0.0));
 			break;
 		case WallDirection::SOUTH:
-			wall->SetWorldRotation(GetActorRotation().Vector().RotateAngleAxis(180.0f, FVector(0.0, 0.0, 1.0f)).Rotation());
-			wall->SetRelativeLocation(FVector(0.0, Width, 0.0));
+			wall->SetWorldRotation(GetActorRotation().Vector().RotateAngleAxis(0.0f, FVector(0.0, 0.0, 1.0f)).Rotation());
+			wall->SetRelativeLocation(FVector(-WallOffset, 0.0, 0.0));
 			break;
 		case WallDirection::WEST:
 			wall->SetWorldRotation(GetActorRotation().Vector().RotateAngleAxis(-90.0f, FVector(0.0, 0.0, 1.0f)).Rotation());
 			wall->SetRelativeLocation(FVector(0.0, 0.0, 0.0));
 			break;
 		case WallDirection::EAST:
-			wall->SetWorldRotation(GetActorRotation().Vector().RotateAngleAxis(90.0f, FVector(0.0, 0.0, 1.0f)).Rotation());
-			wall->SetRelativeLocation(FVector(cornerX, Width, 0.0));
+			wall->SetWorldRotation(GetActorRotation().Vector().RotateAngleAxis(-90.0f, FVector(0.0, 0.0, 1.0f)).Rotation());
+			wall->SetRelativeLocation(FVector(0.0f, wall->Length + WallOffset, 0.0));
 			break;
 		case WallDirection::NORTH_EAST:
-			wall->SetWorldRotation(GetActorRotation().Vector().RotateAngleAxis(90.0f, FVector(0.0, 0.0, 1.0f)).Rotation());
-			wall->SetRelativeLocation(FVector(Length, cornerY, 0.0));
+			wall->SetWorldRotation(GetActorRotation().Vector().RotateAngleAxis(-90.0f, FVector(0.0, 0.0, 1.0f)).Rotation());
+			wall->SetRelativeLocation(FVector(cornerX + WallOffset, cornerY + WallOffset, 0.0));
 			break;
 		case WallDirection::SOUTH_EAST:
 			wall->SetWorldRotation(GetActorRotation().Vector().RotateAngleAxis(0.0f, FVector(0.0, 0.0, 1.0f)).Rotation());
@@ -376,11 +422,6 @@ void ARoom::UpdateAllWalls()
 	{
 		auto& Direction = p.Key;
 		auto& wall = p.Value;
-
-		// Update aligments
-		// TODO: Чекать offset объектов
-		
-		// SetLeftAligment(Direction, wall->leftAligment);
 
 		UpdateWall(Direction);
 	}
@@ -505,11 +546,43 @@ void ARoom::AddObjectToWall(UWallComponent* wall, float localPos, ObjectType typ
 
 	// Clamp obj offset between wall corners
 	obj->offset = FMath::Clamp(meshOffset, AligmentOffset, wall->Length - (AligmentOffset + meshDimensions.Y));
+	obj->type = type;
 
 	// Add object to wall component
 	wall->Objects.Add(obj);
 	 
 	// Update wall
+	UpdateWall(wall->Direction);
+}
+
+void ARoom::RemoveObjectFromWall(UObjectComponent* obj)
+{
+	if (!IsValid(obj))
+	{
+		return;
+	}
+
+	auto wall = (UWallComponent*)obj->GetAttachParent();
+
+	if (wall->Objects.Remove(obj) > 0)
+	{
+		obj->DestroyComponent();
+		UpdateWall(wall->Direction);
+	}
+		
+}
+
+void ARoom::MoveObject(UObjectComponent* obj, float newPos)
+{
+	if (!IsValid(obj))
+	{
+		return;
+	}
+
+	auto wall = (UWallComponent*)obj->GetAttachParent();
+
+	obj->offset = FMath::Clamp(newPos, AligmentOffset, wall->Length - AligmentOffset - obj->GetDimensions().Y);
+
 	UpdateWall(wall->Direction);
 }
 
@@ -529,19 +602,13 @@ void ARoom::ClampDimensions()
 				minLength = min;
 		}
 
-		float deltaLength = Length - w1->Length;
-
 		auto w2 = Walls[WallDirection::EAST];
 		if (w2->Objects.Num() > 0)
 		{
-			auto obj = w2->Objects[0];
-
-			int min = w2->Length - (obj->offset - AligmentOffset);
+			auto obj = w2->Objects.Last();
+			int min = obj->offset + obj->GetDimensions().Y + AligmentOffset;
 			if (minLength < min)
 				minLength = min;
-
-			for (auto& ob : w2->Objects)
-				ob->offset += deltaLength;
 		}
 
 		if (Length < minLength)
@@ -562,13 +629,10 @@ void ARoom::ClampDimensions()
 		auto w4 = Walls[WallDirection::SOUTH];
 		if (w4->Objects.Num() > 0)
 		{
-			auto obj = w4->Objects[0];
-			int min = w4->Length - (obj->offset - AligmentOffset);
+			auto obj = w4->Objects.Last();
+			int min = obj->offset + obj->GetDimensions().Y + AligmentOffset;
 			if (minWidth < min)
 				minWidth = min;
-
-			for (auto& ob : w4->Objects)
-				ob->offset -= (obj->offset - AligmentOffset);
 		}
 
 		if (Width < minWidth)
@@ -589,40 +653,23 @@ void ARoom::ClampDimensions()
 		}
 
 		auto w2 = Walls[WallDirection::NORTH_EAST];
-		auto w3 = Walls[WallDirection::EAST];
+		// auto w3 = Walls[WallDirection::EAST];
 
 		if (w2->Objects.Num() > 0)
 		{
-			auto obj = w2->Objects[0];
-			int min = (cornerX + w2->Length) - (obj->offset - AligmentOffset);
-
+			auto obj = w2->Objects.Last();
+			float min = (cornerX + WallOffset) + obj->offset + obj->GetDimensions().Y + AligmentOffset;
 			if (minLength < min)
 				minLength = min;
-
-			for (auto& ob : w2->Objects)
-				ob->offset -= (obj->offset - AligmentOffset);
 		}
-		
-
-		/*auto w3 = Walls[WallDirection::NORTH_EAST];
-		if (w3->Objects.Num() > 0)
-		{
-			auto obj = w3->Objects[0];
-			int min = w3->Length - (obj->offset - AligmentOffset);
-			if (minLength < min)
-				minLength = min;
-
-			for (auto& ob : w3->Objects)
-				ob->offset -= (obj->offset - AligmentOffset);
-		}*/
 
 		if (Length < minLength)
 			Length = minLength;
 
 		// Check minimal width
-		/*int minWidth = minimalWallLength;
+		int minWidth = minimalWallLength * 2;
 
-		auto w3 = Walls[WallDirection::NORTH];
+		auto w3 = Walls[WallDirection::SOUTH];
 		if (w3->Objects.Num() > 0)
 		{
 			auto obj = w3->Objects.Last();
@@ -631,26 +678,19 @@ void ARoom::ClampDimensions()
 				minWidth = min;
 		}
 
-		auto w4 = Walls[WallDirection::SOUTH];
+		auto w4 = Walls[WallDirection::SOUTH_EAST];
+		// auto w5 = Walls[WallDirection::NORTH];
+
 		if (w4->Objects.Num() > 0)
 		{
-			auto obj = w4->Objects[0];
-			int min = w4->Length - (obj->offset - AligmentOffset);
+			auto obj = w4->Objects.Last();
+			float min = (cornerY + WallOffset) + obj->offset + obj->GetDimensions().Y + AligmentOffset;
 			if (minWidth < min)
 				minWidth = min;
-
-			for (auto& ob : w4->Objects)
-				ob->offset -= (obj->offset - AligmentOffset);
 		}
 
 		if (Width < minWidth)
-			Width = minWidth;*/
-
-		/*if (Length < minimalWallLength * 2)
-			Length = minimalWallLength * 2;
-
-		if (Width < minimalWallLength * 2)
-			Width = minimalWallLength * 2;*/
+			Width = minWidth;
 	}
 }
 
@@ -683,6 +723,27 @@ void ARoom::UpdateFloor()
 		ceiling1->SetRelativeLocation(FVector(0.0, 0.0, Height));
 		ceiling1->SetRelativeScale3D(FVector(Length, Width, 1.0));
 		ceiling1->SetVisibility(true);
+
+		// Set corner transform
+		/*auto corner1 = CornerSegments[0];
+		corner1->SetRelativeLocation(FVector(-WallOffset, -WallOffset, 0.0));
+		corner1->SetRelativeScale3D(FVector(1.0, WallOffset, Height));
+		corner1->SetVisibility(true);
+
+		auto corner2 = CornerSegments[1];
+		corner2->SetRelativeLocation(FVector(Length, -WallOffset, 0.0));
+		corner2->SetRelativeScale3D(FVector(1.0, WallOffset, Height));
+		corner2->SetVisibility(true);
+
+		auto corner3 = CornerSegments[2];
+		corner3->SetRelativeLocation(FVector(Length, Width, 0.0));
+		corner3->SetRelativeScale3D(FVector(1.0, WallOffset, Height));
+		corner3->SetVisibility(true);
+
+		auto corner4 = CornerSegments[3];
+		corner4->SetRelativeLocation(FVector(-WallOffset, Width, 0.0));
+		corner4->SetRelativeScale3D(FVector(1.0, WallOffset, Height));
+		corner4->SetVisibility(true);*/
 	}
 	else if (Type == RoomType::L_SHAPE)
 	{
@@ -703,6 +764,37 @@ void ARoom::UpdateFloor()
 		floor2->SetVisibility(true);
 		ceiling1->SetVisibility(true);
 		ceiling2->SetVisibility(true);
+
+		// Set corner transform
+		auto corner1 = CornerSegments[0];
+		corner1->SetRelativeLocation(FVector(-WallOffset, -WallOffset, 0.0));
+		corner1->SetRelativeScale3D(FVector(1.0, WallOffset, Height));
+		corner1->SetVisibility(true);
+
+		auto corner2 = CornerSegments[1];
+		corner2->SetRelativeLocation(FVector(Length, -WallOffset, 0.0));
+		corner2->SetRelativeScale3D(FVector(1.0, WallOffset, Height));
+		corner2->SetVisibility(true);
+
+		auto corner3 = CornerSegments[2];
+		corner3->SetRelativeLocation(FVector(Length, cornerY, 0.0));
+		corner3->SetRelativeScale3D(FVector(1.0, WallOffset, Height));
+		corner3->SetVisibility(true);
+
+		auto corner4 = CornerSegments[3];
+		corner4->SetRelativeLocation(FVector(cornerX, cornerY, 0.0));
+		corner4->SetRelativeScale3D(FVector(1.0, WallOffset, Height));
+		corner4->SetVisibility(true);
+
+		auto corner5 = CornerSegments[4];
+		corner5->SetRelativeLocation(FVector(cornerX, Width, 0.0));
+		corner5->SetRelativeScale3D(FVector(1.0, WallOffset, Height));
+		corner5->SetVisibility(true);
+
+		auto corner6 = CornerSegments[5];
+		corner6->SetRelativeLocation(FVector(-WallOffset, Width, 0.0));
+		corner6->SetRelativeScale3D(FVector(1.0, WallOffset, Height));
+		corner6->SetVisibility(true);
 	}
 	
 }
@@ -744,9 +836,11 @@ UStaticMeshComponent* ARoom::AddStaticMeshComponent(UStaticMesh* Mesh, FName Nam
 
 	Obj->SetStaticMesh(Mesh);
 	Obj->RegisterComponent();
-	Obj->AttachTo(this->RootComponent);
 
-	// AddInstanceComponent(Obj);
+	static FAttachmentTransformRules rules(EAttachmentRule::KeepRelative, false);
+	Obj->AttachToComponent(this->RootComponent, rules);
+
+	AddInstanceComponent(Obj);
 
 	return Obj;
 }

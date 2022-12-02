@@ -28,15 +28,6 @@ protected:
 	
 	// Room dimensions
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configurator properties", meta = (ClampMin = "440.0", ClampMax = "1000.0"))
-	float maxLength = 1000.0;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configurator properties", meta = (ClampMin = "440.0", ClampMax = "1000.0"))
-	float maxWidth  = 1000.0;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configurator properties", meta = (ClampMin = "270.0", ClampMax = "350.0"))
-	float maxHeight = 350.0;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configurator properties", meta = (ClampMin = "440.0", ClampMax = "1000.0"))
 	float Length = 440.0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configurator properties", meta = (ClampMin = "440.0", ClampMax = "1000.0"))
@@ -88,11 +79,17 @@ protected:
 
 	RoomType Type = RoomType::STANDARD;
 
-	UPROPERTY(BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TMap<WallDirection, UWallComponent*> Walls;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TArray<UBoxComponent*> WallBoundingBoxes;
 
 	// Map for window and door dimensions
 	TMap<ObjectType, FVector> ObjDimensions;
+
+	// Segments for room corners
+	TArray<TWeakObjectPtr<UStaticMeshComponent>> CornerSegments;
 
 	UStaticMeshComponent* floor1 = nullptr;
 	UStaticMeshComponent* floor2 = nullptr;
@@ -103,6 +100,9 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 	
+	UFUNCTION(BlueprintCallable)
+	void EnableBoundingBoxes(bool value);
+
 	UFUNCTION(BlueprintCallable)
 	void CreateRoom(RoomType type = RoomType::STANDARD);
 
@@ -119,6 +119,14 @@ protected:
 	UFUNCTION(BlueprintCallable)
 	// Add door/window or remove it and update wall
 	void AddObjectToWall(UWallComponent* wall, float localPos, ObjectType type, int index = 0);
+
+	UFUNCTION(BlueprintCallable)
+	// Add door/window or remove it and update wall
+	void RemoveObjectFromWall(UObjectComponent* obj);
+
+	UFUNCTION(BlueprintCallable)
+	// Add door/window or remove it and update wall
+	void MoveObject(UObjectComponent* obj, float newPos);
 
 	UFUNCTION(BlueprintCallable)
 	void SetCorner(FVector2D corner, bool needUpdateWalls = true);

@@ -2,6 +2,7 @@
 
 
 #include "WallComponent.h"
+#include "UObject/UObjectGlobals.h"
 
 // Sets default values for this component's properties
 UWallComponent::UWallComponent()
@@ -10,7 +11,11 @@ UWallComponent::UWallComponent()
 	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = false;
 
-	// ...
+	
+
+	
+
+	// BoundingBox->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
 }
 
 
@@ -19,8 +24,18 @@ void UWallComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// ...
+	BoundingBox = NewObject<UBoxComponent>(this, UBoxComponent::StaticClass(), NAME_None);
+	BoundingBox->SetWorldScale3D(FVector(1.0));
+	BoundingBox->SetHiddenInGame(false);
+	BoundingBox->SetBoxExtent(FVector(50.0f));
+
+	static FAttachmentTransformRules rules(EAttachmentRule::KeepRelative, false);
+	BoundingBox->AttachToComponent(this, rules);
 	
+	BoundingBox->RegisterComponent();
+	BoundingBox->SetRelativeLocation(FVector(0.0));
+
+	BoundingBox->SetCollisionProfileName(FName("BlockAll"));
 }
 
 

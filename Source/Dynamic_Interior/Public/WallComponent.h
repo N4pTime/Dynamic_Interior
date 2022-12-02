@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/SceneComponent.h"
+#include "Components/BoxComponent.h"
 #include "ObjectComponent.h"
 
 #include "WallComponent.generated.h"
@@ -59,6 +60,9 @@ public:
 
 	// Segments below and above objects
 	TArray<TWeakObjectPtr<UStaticMeshComponent>> VerticalSegments;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UBoxComponent* BoundingBox = nullptr;
 
 	// Sets default values for this component's properties
 	UWallComponent();
